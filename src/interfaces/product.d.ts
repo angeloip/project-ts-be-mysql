@@ -1,4 +1,5 @@
 import { RowDataPacket } from "mysql2"
+import { Category } from "./category"
 
 export interface Product extends RowDataPacket {
   name: string
@@ -7,7 +8,7 @@ export interface Product extends RowDataPacket {
   discountPercentage?: number
   rating?: number
   stock: number
-  category: string
+  category: int | Category
 }
 
 

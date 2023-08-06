@@ -1,28 +1,38 @@
 import { NextFunction, Request, Response } from 'express'
 import { pool } from '../config/connection'
-import { Product } from '../interfaces/product';
-import { ResultSetHeader } from 'mysql2/promise';
+import { Product } from '../interfaces/product'
+import { ResultSetHeader } from 'mysql2/promise'
 
 export const productController = {
   getProducts: async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const query = 'SELECT * FROM products';
-      const [rows] = await pool.query<Product[]>(query);
+      const query = `
+      SELECT p.*, JSON_OBJECT('_id', c._id, 'name', c.name) AS category
+      FROM products p
+      JOIN categories c ON p.category = c._id`
 
-      return res.status(200).json(rows);
+      const [rows] = await pool.query<Product[]>(query)
+
+      return res.status(200).json(rows)
     } catch (error) {
       next(error)
     }
   },
   getProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
-      const query = 'SELECT * FROM products WHERE id = ?';
-      const [rows] = await pool.query<Product[]>(query, [id]);
+      const { id } = req.params
+      const query = `
+      SELECT p.*, JSON_OBJECT('_id', c._id, 'name', c.name) AS category
+      FROM products p
+      JOIN categories c ON p.category = c._id
+      WHERE p._id = ?`;
 
-      if (rows.length === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
+      const [rows] = await pool.query<Product[]>(query, [id])
 
-      return res.status(200).json(rows[0]);
+      if (rows.length === 0)
+        return res.status(404).json({ msg: 'Producto no encontrado' })
+
+      return res.status(200).json(rows[0])
     } catch (error) {
       next(error)
     }
@@ -69,27 +79,32 @@ export const productController = {
   }, */
   createProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { name, description, price, stock, category }: Product = req.body;
+      const { name, description, price, stock, category }: Product = req.body
 
-      const query = 'INSERT INTO products (name, description, price, stock, category) VALUES (?, ?, ?, ?, ?)';
-      await pool.query(query, [name, description, price, stock, category]);
+      const query =
+        'INSERT INTO products (name, description, price, stock, category) VALUES (?, ?, ?, ?, ?)'
+      await pool.query(query, [name, description, price, stock, category])
 
-      return res.status(201).json({ msg: 'Producto Creado' });
+      return res.status(201).json({ msg: 'Producto Creado' })
     } catch (error) {
       next(error)
     }
   },
   updateProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
-      const updatedProduct: Partial<Product> = req.body;
+      const { id } = req.params
+      const updatedProduct: Partial<Product> = req.body
 
-      const updateQuery = 'UPDATE products SET ? WHERE id = ?';
-      const [result] = await pool.query<ResultSetHeader>(updateQuery, [updatedProduct, id]);
+      const updateQuery = 'UPDATE products SET ? WHERE _id = ?'
+      const [result] = await pool.query<ResultSetHeader>(updateQuery, [
+        updatedProduct,
+        id
+      ])
 
-      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
+      if (result.affectedRows === 0)
+        return res.status(404).json({ msg: 'Producto no encontrado' })
 
-      return res.status(200).json({ msg: 'Producto actualizado' });
+      return res.status(200).json({ msg: 'Producto actualizado' })
     } catch (error) {
       next(error)
     }
@@ -141,13 +156,14 @@ export const productController = {
   }, */
   deleteProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params;
-      const query = 'DELETE FROM products WHERE id = ?';
-      const [result] = await pool.query<ResultSetHeader>(query, [id]);
+      const { id } = req.params
+      const query = 'DELETE FROM products WHERE _id = ?'
+      const [result] = await pool.query<ResultSetHeader>(query, [id])
 
-      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
+      if (result.affectedRows === 0)
+        return res.status(404).json({ msg: 'Producto no encontrado' })
 
-      return res.status(200).json({ msg: 'Producto eliminado' });
+      return res.status(200).json({ msg: 'Producto eliminado' })
     } catch (error) {
       next(error)
     }

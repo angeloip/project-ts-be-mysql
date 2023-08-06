@@ -1,90 +1,68 @@
 import { NextFunction, Request, Response } from 'express'
-import { CategoryModel } from '../models/category'
-import { ProductModel } from '../models/product'
+import { pool } from '../config/connection';
+import { Category } from '../interfaces/category';
+import { ResultSetHeader } from 'mysql2';
 
 export const categoryController = {
   getCategories: async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const categories = await CategoryModel.find({})
+      const query = 'SELECT * FROM categories';
+      const [rows] = await pool.query<Category[]>(query);
 
-      return res.status(200).json(categories)
+      return res.status(200).json(rows);
     } catch (error) {
       next(error)
     }
   },
   getCategory: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      try {
-        const { id } = req.params
+      const { id } = req.params;
+      const query = 'SELECT * FROM categories WHERE _id = ?';
+      const [rows] = await pool.query<Category[]>(query, [id]);
 
-        const category = await CategoryModel.findById(id)
+      if (rows.length === 0) return res.status(404).json({ msg: 'Categoría no encontrada' });
 
-        if (!category)
-          return res.status(404).json({ msg: 'Categoría no existente' })
-
-        return res.status(200).json(category)
-      } catch (error) {
-        next(error)
-      }
+      return res.status(200).json(rows[0]);
     } catch (error) {
       next(error)
     }
   },
   createCategory: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const category = req.body
+      const { name }: Category = req.body;
 
-      const categoryExist = await CategoryModel.findOne({ name: category.name })
+      const query = 'INSERT INTO categories (name) VALUES (?)';
+      await pool.query(query, [name]);
 
-      if (categoryExist)
-        return res.status(406).json({ msg: 'Categoría existente' })
-
-      const newCategory = new CategoryModel(category)
-      await newCategory.save()
-
-      return res.status(200).json({ msg: 'Categoría creada' })
+      return res.status(201).json({ msg: 'Categoría Creada' });
     } catch (error) {
       next(error)
     }
   },
   updateCategory: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
-      const newCategoryInfo = req.body
+      const { id } = req.params;
+      const updatedCategory: Partial<Category> = req.body;
 
-      const category = await CategoryModel.findById(id)
+      const updateQuery = 'UPDATE categories SET ? WHERE _id = ?';
+      const [result] = await pool.query<ResultSetHeader>(updateQuery, [updatedCategory, id]);
 
-      if (!category)
-        return res.status(404).json({ msg: 'Categoría no existente' })
+      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Categoría no encontrada' });
 
-      await CategoryModel.findByIdAndUpdate(id, newCategoryInfo, {
-        new: true
-      })
-
-      return res.status(200).json({ msg: 'Categoría actualizada' })
+      return res.status(200).json({ msg: 'Categoría actualizado' });
     } catch (error) {
       next(error)
     }
   },
   deleteCategory: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
+      const { id } = req.params;
+      const query = 'DELETE FROM categories WHERE _id = ?';
+      const [result] = await pool.query<ResultSetHeader>(query, [id]);
 
-      const category = await CategoryModel.findById(id)
+      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Categoría no encontrada' });
 
-      if (!category)
-        return res.status(404).json({ msg: 'Categoría no existente' })
-
-      const product = await ProductModel.findOne({ category: category._id })
-
-      if (product)
-        return res.status(406).json({
-          msg: 'No es posible eliminar la categoría, ya que existe productos con dicha categoría'
-        })
-
-      await CategoryModel.findByIdAndRemove(id)
-
-      return res.status(200).json({ msg: 'Categoría eliminada' })
+      return res.status(200).json({ msg: 'Categoría eliminada' });
     } catch (error) {
       next(error)
     }
