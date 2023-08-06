@@ -1,19 +1,13 @@
-import { Types } from 'mongoose'
+import { RowDataPacket } from "mysql2"
 
-export interface Product {
+export interface Product extends RowDataPacket {
   name: string
   description: string
   price: number
-  discountPercentage: number
-  rating: number
+  discountPercentage?: number
+  rating?: number
   stock: number
-  category: Types.ObjectId
-  thumbnail: Thumbnail
+  category: string
 }
 
-interface Thumbnail {
-  url: string
-  public_id: string
-}
 
-export type partialProduct = Partial<Product>

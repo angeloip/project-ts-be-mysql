@@ -1,37 +1,33 @@
 import { NextFunction, Request, Response } from 'express'
-import { ProductModel } from '../models/product'
-import { remove } from 'fs-extra'
-import {
-  deleteProductPicture,
-  uploadProductPicture
-} from '../helpers/cloudinary'
-import { CategoryModel } from '../models/category'
+import { pool } from '../config/connection'
+import { Product } from '../interfaces/product';
+import { ResultSetHeader } from 'mysql2/promise';
 
 export const productController = {
   getProducts: async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const products = await ProductModel.find({}).populate('category', 'name')
-      return res.status(200).json(products)
+      const query = 'SELECT * FROM products';
+      const [rows] = await pool.query<Product[]>(query);
+
+      return res.status(200).json(rows);
     } catch (error) {
       next(error)
     }
   },
   getProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
-      const product = await ProductModel.findById(id).populate(
-        'category',
-        'name'
-      )
-      if (!product)
-        return res.status(400).json({ msg: 'Producto no encontrado' })
+      const { id } = req.params;
+      const query = 'SELECT * FROM products WHERE id = ?';
+      const [rows] = await pool.query<Product[]>(query, [id]);
 
-      return res.status(200).json(product)
+      if (rows.length === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
+
+      return res.status(200).json(rows[0]);
     } catch (error) {
       next(error)
     }
   },
-  getProductsByCategory: async (
+  /* getProductsByCategory: async (
     req: Request,
     res: Response,
     next: NextFunction
@@ -70,63 +66,35 @@ export const productController = {
     } catch (error) {
       next(error)
     }
-  },
+  }, */
   createProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const product = req.body
+      const { name, description, price, stock, category }: Product = req.body;
 
-      const category = await CategoryModel.findOne({ name: product.category })
+      const query = 'INSERT INTO products (name, description, price, stock, category) VALUES (?, ?, ?, ?, ?)';
+      await pool.query(query, [name, description, price, stock, category]);
 
-      if (!category)
-        return res.status(400).json({ msg: 'Categoría no encontrada' })
-
-      product.category = category._id
-
-      if (req.file) {
-        const result = await uploadProductPicture(req.file.path)
-        await remove(req.file.path)
-        const image = {
-          url: result.secure_url,
-          public_id: result.public_id
-        }
-        product.thumbnail = image
-      }
-
-      const newProduct = new ProductModel(product)
-      await newProduct.save()
-
-      return res.status(200).json({ msg: 'Producto creado' })
+      return res.status(201).json({ msg: 'Producto Creado' });
     } catch (error) {
       next(error)
     }
   },
   updateProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
-      const newProductInfo = req.body
+      const { id } = req.params;
+      const updatedProduct: Partial<Product> = req.body;
 
-      const product = await ProductModel.findById(id)
-      if (!product)
-        return res.status(400).json({ msg: 'Producto no encontrado' })
+      const updateQuery = 'UPDATE products SET ? WHERE id = ?';
+      const [result] = await pool.query<ResultSetHeader>(updateQuery, [updatedProduct, id]);
 
-      const category = await CategoryModel.findOne({
-        name: newProductInfo.category
-      })
+      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
 
-      if (!category)
-        return res.status(400).json({ msg: 'Categoría no encontrada' })
-
-      newProductInfo.category = category._id
-
-      await ProductModel.findByIdAndUpdate(id, newProductInfo, {
-        new: true
-      })
-      return res.status(200).json({ msg: 'Producto actualizado' })
+      return res.status(200).json({ msg: 'Producto actualizado' });
     } catch (error) {
       next(error)
     }
   },
-  updatePicture: async (req: Request, res: Response, next: NextFunction) => {
+  /* updatePicture: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { id } = req.params
 
@@ -170,21 +138,16 @@ export const productController = {
     } catch (error) {
       next(error)
     }
-  },
+  }, */
   deleteProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { id } = req.params
-      const product = await ProductModel.findById(id)
-      if (!product)
-        return res.status(400).json({ msg: 'Producto no encontrado' })
+      const { id } = req.params;
+      const query = 'DELETE FROM products WHERE id = ?';
+      const [result] = await pool.query<ResultSetHeader>(query, [id]);
 
-      const deletedProduct = await ProductModel.findByIdAndDelete(id)
+      if (result.affectedRows === 0) return res.status(404).json({ msg: 'Producto no encontrado' });
 
-      if (deletedProduct && deletedProduct.thumbnail.public_id) {
-        await deleteProductPicture(deletedProduct.thumbnail.public_id)
-      }
-
-      return res.status(200).json({ msg: 'Producto eliminado' })
+      return res.status(200).json({ msg: 'Producto eliminado' });
     } catch (error) {
       next(error)
     }
