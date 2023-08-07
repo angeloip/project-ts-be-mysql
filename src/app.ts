@@ -24,8 +24,6 @@ app.use((error: any, _req: Request, res: Response, _next: NextFunction) => {
 	return res.status(500).json({ msg: error.message })
 })
 
-
-
 app.get('/', (_req, res) => {
 	res.send('Server')
 })

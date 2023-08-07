@@ -11,6 +11,7 @@ CREATE TABLE products (
     rating DECIMAL(2,1) NOT NULL DEFAULT 0,
     stock INT NOT NULL,
     category INT NOT NULL,
+    thumbnail JSON NOT NULL DEFAULT (JSON_OBJECT('url', 'https://res.cloudinary.com/dzgiu2txq/image/upload/v1677945017/picture/no-image_abom6f.jpg', 'public_id', '')),
     createdAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (_id),

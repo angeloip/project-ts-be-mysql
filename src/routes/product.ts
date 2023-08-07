@@ -1,9 +1,10 @@
 import { Router } from 'express'
 import { productController } from '../controllers/product'
+import { multerMiddleware } from '../middlewares/file'
 
 const router = Router()
 
-router.post('/', productController.createProduct)
+router.post('/', multerMiddleware, productController.createProduct)
 router.get('/', productController.getProducts)
 router.get('/:id', productController.getProduct)
 router.patch('/:id', productController.updateProduct)

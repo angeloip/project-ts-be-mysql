@@ -2,6 +2,8 @@ import { NextFunction, Request, Response } from 'express'
 import { pool } from '../config/connection'
 import { Product } from '../interfaces/product'
 import { ResultSetHeader } from 'mysql2/promise'
+import { uploadProductPicture } from '../helpers/cloudinary'
+import { remove } from 'fs-extra'
 
 export const productController = {
   getProducts: async (_req: Request, res: Response, next: NextFunction) => {
@@ -25,7 +27,7 @@ export const productController = {
       SELECT p.*, JSON_OBJECT('_id', c._id, 'name', c.name) AS category
       FROM products p
       JOIN categories c ON p.category = c._id
-      WHERE p._id = ?`;
+      WHERE p._id = ?`
 
       const [rows] = await pool.query<Product[]>(query, [id])
 
@@ -81,9 +83,24 @@ export const productController = {
     try {
       const { name, description, price, stock, category }: Product = req.body
 
-      const query =
-        'INSERT INTO products (name, description, price, stock, category) VALUES (?, ?, ?, ?, ?)'
-      await pool.query(query, [name, description, price, stock, category])
+      let thumbnail = null
+
+      if (req.file) {
+        const result = await uploadProductPicture(req.file.path)
+        await remove(req.file.path)
+        thumbnail = JSON.stringify({
+          url: result.secure_url,
+          public_id: result.public_id
+        })
+      }
+
+      const query = `INSERT INTO products (name, description, price, stock, category ${thumbnail ? ', thumbnail' : ''
+        }) VALUES (?, ?, ?, ?, ? ${thumbnail ? ', ?' : ''})`
+
+      const values = [name, description, price, stock, category]
+      if (thumbnail) values.push(thumbnail)
+
+      await pool.query(query, values)
 
       return res.status(201).json({ msg: 'Producto Creado' })
     } catch (error) {
