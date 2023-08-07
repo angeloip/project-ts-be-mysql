@@ -39,46 +39,27 @@ export const productController = {
       next(error)
     }
   },
-  /* getProductsByCategory: async (
+  getProductsByCategory: async (
     req: Request,
     res: Response,
     next: NextFunction
   ) => {
     try {
-      const { name, key, order, min, max } = req.query
+      const { name } = req.query
 
-      const category = await CategoryModel.findOne({ name })
+      const query = `
+      SELECT p.*, JSON_OBJECT('_id', c._id, 'name', c.name) AS category
+      FROM products p
+      JOIN categories c ON p.category = c._id
+      WHERE c.name = ?`
 
-      if (!category) {
-        return res.status(404).json({ msg: 'Categoría no encontrada' })
-      }
+      const [rows] = await pool.query<Product[]>(query, [name])
 
-      const orderMap = {
-        name: 'name',
-        price: 'price'
-      }
-
-      const orderByField = orderMap[key as keyof typeof orderMap]
-      const sortOrder = order === 'desc' ? -1 : 1
-
-      const query: any = { category: category._id }
-
-      if (min && max) {
-        query.price = {
-          $gte: min,
-          $lte: max
-        }
-      }
-
-      const products = await ProductModel.find(query)
-        .sort({ [orderByField]: sortOrder })
-        .populate('category', 'name')
-
-      return res.status(200).json(products)
+      res.status(200).json(rows)
     } catch (error) {
       next(error)
     }
-  }, */
+  },
   createProduct: async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { name, description, price, stock, category }: Product = req.body
