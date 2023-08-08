@@ -1,5 +1,6 @@
 import { RowDataPacket } from "mysql2"
 import { Category } from "./category"
+import { ParsedQs } from "qs"
 
 export interface Product extends RowDataPacket {
   name: string
@@ -12,3 +13,10 @@ export interface Product extends RowDataPacket {
 }
 
 
+export interface Querys extends ParsedQs {
+  name: string
+  key: string
+  order: string
+  min: string
+  max: string
+}

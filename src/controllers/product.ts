@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express'
 import { pool } from '../config/connection'
-import { Product } from '../interfaces/product'
+import { Product, Querys } from '../interfaces/product'
 import { ResultSetHeader } from 'mysql2/promise'
 import { uploadProductPicture } from '../helpers/cloudinary'
 import { remove } from 'fs-extra'
+import data from "./data.json"
 
 export const productController = {
   getProducts: async (_req: Request, res: Response, next: NextFunction) => {
@@ -45,19 +46,45 @@ export const productController = {
     next: NextFunction
   ) => {
     try {
-      const { name } = req.query
+      const { name, key, order, min, max } = req.query as Querys;
+
+      let orderByClause = '';
+      if (key && order) {
+        const allowedKeys = ['name', 'price'];
+        const allowedOrders = ['asc', 'desc'];
+        if (allowedKeys.includes(key) && allowedOrders.includes(order)) {
+          orderByClause = `ORDER BY ${key} ${order.toUpperCase()}`;
+        }
+      }
+
+      const queryParams = [name];
+
+      let filterByPriceClause = '';
+      if (min && max) {
+        const parsedMin = parseFloat(min);
+        const parsedMax = parseFloat(max);
+        if (!isNaN(parsedMin) && !isNaN(parsedMax)) {
+          filterByPriceClause = 'AND p.price BETWEEN ? AND ?';
+          queryParams.push(parsedMin.toString(), parsedMax.toString());
+        }
+      }
 
       const query = `
-      SELECT p.*, JSON_OBJECT('_id', c._id, 'name', c.name) AS category
-      FROM products p
-      JOIN categories c ON p.category = c._id
-      WHERE c.name = ?`
+        SELECT 
+          p.*,
+          JSON_OBJECT('_id', c._id, 'name', c.name) as category
+        FROM products p
+        JOIN categories c ON p.category = c._id
+        WHERE c.name = ?
+        ${filterByPriceClause}
+        ${orderByClause}
+      `;
 
-      const [rows] = await pool.query<Product[]>(query, [name])
+      const [rows] = await pool.query<Product[]>(query, queryParams);
 
-      res.status(200).json(rows)
+      return res.status(200).json(rows);
     } catch (error) {
-      next(error)
+      next(error);
     }
   },
   createProduct: async (req: Request, res: Response, next: NextFunction) => {
@@ -162,6 +189,34 @@ export const productController = {
         return res.status(404).json({ msg: 'Producto no encontrado' })
 
       return res.status(200).json({ msg: 'Producto eliminado' })
+    } catch (error) {
+      next(error)
+    }
+  },
+  CreateProducts: async (_req: Request, res: Response, next: NextFunction) => {
+    try {
+      const values: any[] = [];
+      let placeholders = '';
+
+      data.forEach((product, index) => {
+        const { name, description, price, stock, category, thumbnail } = product;
+        values.push(name, description, price, stock, category, JSON.stringify(thumbnail));
+
+        if (index === 0) {
+          placeholders = '(?, ?, ?, ?, ?, ?)';
+        } else {
+          placeholders += ', (?, ?, ?, ?, ?, ?)';
+        }
+      });
+
+      const query = `
+      INSERT INTO products (name, description, price, stock, category, thumbnail)
+      VALUES ${placeholders}
+    `;
+
+      await pool.query(query, values);
+
+      return res.status(201).json({ msg: 'Productos Creados' });
     } catch (error) {
       next(error)
     }
